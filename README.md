@@ -13,5 +13,5 @@ Environment Setup
 Scripts
 - roberta_sample.py
   - Attempts to fill in <mask> tokens within a sentence with the most likely word
-- t_sample.py
+- vit_sample.py
   - Guesses the contents of the linked image (which can be changed).
