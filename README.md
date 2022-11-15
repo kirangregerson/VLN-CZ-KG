@@ -11,7 +11,7 @@ Environment Setup
  - All present python scripts should now be functional.
 
 Scripts
- - roberta_sample.py
+- roberta_sample.py
   - Attempts to fill in <mask> tokens within a sentence with the most likely word
- - vit_sample.py
+- t_sample.py
   - Guesses the contents of the linked image (which can be changed).
