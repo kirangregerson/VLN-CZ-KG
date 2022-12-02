@@ -119,9 +119,9 @@ class Seq2SeqAgent(BaseAgent):
             # model_config = BertConfig.from_pretrained("bert-base-multilingual-cased")
             self.encoder = BertModel.from_pretrained("bert-base-multilingual-cased", config=model_config, cache_dir="./cache/")
             self.encoder = DP(self.encoder).to(device)
-        elif args.encoder_backbone == 'mclip':
-            self.encoder = multilingual_clip.load_model('M-BERT-Base-ViT-B')
-            self.encoder = DP(self.encoder).to(device)
+        # elif args.encoder_backbone == 'mclip':
+        #     self.encoder = multilingual_clip.load_model('M-BERT-Base-ViT-B')
+        #     self.encoder = DP(self.encoder).to(device)
 
         self.encoder_pos = model.EncoderMBert(args.bert_dim)
         self.encoder_pos = DP(self.encoder_pos).to(device)

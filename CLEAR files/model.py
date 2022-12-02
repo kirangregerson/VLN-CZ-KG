@@ -15,6 +15,7 @@ NOTES:
     - This will likely stay the same between either dataset (RxR / R2R).
     - There is no existing model
 '''
+
 class EncoderLSTM(nn.Module):
     ''' Encodes navigation instructions, returning hidden state context (for
         attention methods) and a decoder initial state. '''
@@ -29,7 +30,6 @@ class EncoderLSTM(nn.Module):
             print("Using Bidir in EncoderLSTM")
         self.num_directions = 2 if bidirectional else 1
         self.num_layers = num_layers
-        # Auto-embedding using torch.nn (Already padded! Yay!)
         self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx)
         input_size = embedding_size
         self.lstm = nn.LSTM(input_size, hidden_size, self.num_layers,
@@ -42,13 +42,11 @@ class EncoderLSTM(nn.Module):
     def init_state(self, inputs):
         ''' Initialize to zero cell states and hidden states.'''
         batch_size = inputs.size(0)
-        # Hidden states (start at 0)
         h0 = Variable(torch.zeros(
             self.num_layers * self.num_directions,
             batch_size,
             self.hidden_size
         ), requires_grad=False)
-        # Cell states (start at 0)
         c0 = Variable(torch.zeros(
             self.num_layers * self.num_directions,
             batch_size,
