@@ -6,16 +6,20 @@ NUM_RETURN_SEQUENCES = 3
 NUM_BEAMS = 10
 MODEL_NAME = "prithivida/parrot_paraphraser_on_T5"
 torch_device = 'cuda' if torch.cuda.is_available() else 'cpu'
+PATH_TO_DATASET = '../rxr_train_guide.jsonl'
+OUTPUT_PATH = 'rxr_train_new.jsonl'
 print(torch_device)
 
 def create_model_and_tokenizer(): 
     return Parrot(model_tag=MODEL_NAME, use_gpu=False)
 
-def get_response(input_text, model, max_length):
+def get_responses(input_text, model, max_length):
     return model.augment(input_phrase = input_text,
                          diversity_ranker='levenshtein',
                          do_diverse=False,
                          max_return_phrases = NUM_RETURN_SEQUENCES,
+                         max_length=max_length,
+                         adequacy_threshold = .99,
                          fluency_threshold = .90)
 
 def load_dataset(path_to_data):
@@ -55,9 +59,12 @@ def write_and_generate_parallel_for_single_annotation(annotation, model, f, pad_
     include the synthetically generated data.
     """
     instruction = annotation['instruction']
-    new_instructions = get_response(instruction, model, pad_to_len)
+    new_instructions = get_responses(instruction, model, pad_to_len)
     print()
-    print('old instruction: ', instruction)
+    print('old instruction: ')
+    print(instruction)
+    print()
+    print('lenth of responses goten: ', len(new_instructions))
 
     for new_instruction in new_instructions:
         print('writing w the following new instruction:')
@@ -66,6 +73,7 @@ def write_and_generate_parallel_for_single_annotation(annotation, model, f, pad_
         # json.dump(annotation, f)
 
     annotation['instruction'] = instruction
+    print()
 
     return new_instructions
 
@@ -93,6 +101,6 @@ def generate_parallel(data, write_to_path):
 
 
 if __name__ == '__main__':
-    new_data = load_dataset('../../rxr_train_guide.jsonl')
+    new_data = load_dataset(PATH_TO_DATASET)
     filtered = filter_for_language(new_data, 'en-US')
-    generate_parallel(filtered, 'rxr_train_new.jsonl')
+    generate_parallel(filtered, OUTPUT_PATH)
