@@ -1,5 +1,5 @@
 import torch
-from parrot import Parrot
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import json
 
 NUM_RETURN_SEQUENCES = 3
@@ -11,16 +11,20 @@ OUTPUT_PATH = 'rxr_train_new.jsonl'
 print(torch_device)
 
 def create_model_and_tokenizer(): 
-    return Parrot(model_tag=MODEL_NAME, use_gpu=False)
+    model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    return model, tokenizer
 
-def get_responses(input_text, model, max_length):
-    return model.augment(input_phrase = input_text,
-                         diversity_ranker='levenshtein',
-                         do_diverse=False,
-                         max_return_phrases = NUM_RETURN_SEQUENCES,
+def get_responses(input_text, model, tokenizer, max_length):
+    print('in get_responses')
+    encoding = tokenizer.encode("paraphrase: " + input_text, max_length = max_length, return_tensors='pt')
+    print('shape of encoding: ', encoding.shape)
+    input_ids = encoding['input_ids'].to(torch_device)
+    print('shape of input_ids: ', input_ids.shape)
+    return model.generate(**batch,
                          max_length=max_length,
-                         adequacy_threshold = .99,
-                         fluency_threshold = .90)
+                         num_beams = 5,
+                         num_return_sentences = NUM_RETURN_SENTENCES)
 
 def load_dataset(path_to_data):
     new_data = []
@@ -43,7 +47,7 @@ def filter_for_language(data, language):
     """
     return list(filter(lambda annotation: annotation['language'] == language, data))
 
-def write_and_generate_parallel_for_single_annotation(annotation, model, f, pad_to_len):
+def write_and_generate_parallel_for_single_annotation(annotation, model, tokenizer, f, pad_to_len):
     """
     Parameters
     ----------
@@ -59,7 +63,7 @@ def write_and_generate_parallel_for_single_annotation(annotation, model, f, pad_
     include the synthetically generated data.
     """
     instruction = annotation['instruction']
-    new_instructions = get_responses(instruction, model, pad_to_len)
+    new_instructions = get_responses(instruction, model, tokenizer, pad_to_len)
     print()
     print('old instruction: ')
     print(instruction)
@@ -84,7 +88,7 @@ def generate_parallel(data, write_to_path):
     data          : Array[Dictionary]
     write_to_path : String
     """
-    model = create_model_and_tokenizer()
+    model, tokenizer = create_model_and_tokenizer()
     f = open(write_to_path, 'a')
     # for annotation in data:
     #     new_annotations = write_and_generate_parallel_for_single_annotation(annotation, model, tokenizer, f)
@@ -94,7 +98,7 @@ def generate_parallel(data, write_to_path):
     print(pad_to_len)
 
     for i in range(3):
-        new_annotations = write_and_generate_parallel_for_single_annotation(data[i], model, f, pad_to_len)
+        new_annotations = write_and_generate_parallel_for_single_annotation(data[i], model, tokenizer, f, pad_to_len)
     
     f.close()
     print('done writing and generating!')
