@@ -13,9 +13,9 @@ def create_model_and_tokenizer():
     model = PegasusForConditionalGeneration.from_pretrained(model_name).to(torch_device)
     return model, tokenizer
 
-def get_response(input_text, model, tokenizer):
-  batch = tokenizer([input_text],truncation=True,padding='longest',max_length=60, return_tensors="pt").to(torch_device)
-  translated = model.generate(**batch,max_length=60,num_beams=NUM_BEAMS, num_return_sequences=NUM_RETURN_SEQUENCES, temperature=1.5)
+def get_response(input_text, model, tokenizer, max_length):
+  batch = tokenizer([input_text],truncation=True,padding='longest',max_length=max_length, return_tensors="pt").to(torch_device)
+  translated = model.generate(**batch,max_length=max_length,num_beams=NUM_BEAMS, num_return_sequences=NUM_RETURN_SEQUENCES, temperature=2)
   tgt_text = tokenizer.batch_decode(translated, skip_special_tokens=True)
   return tgt_text
 
@@ -41,7 +41,7 @@ def filter_for_language(data, language):
     """
     return list(filter(lambda annotation: annotation['language'] == language, data))
 
-def write_and_generate_parallel_for_single_annotation(annotation, model, tokenizer, f):
+def write_and_generate_parallel_for_single_annotation(annotation, model, tokenizer, f, max_length):
     """
     Parameters
     ----------
@@ -55,11 +55,17 @@ def write_and_generate_parallel_for_single_annotation(annotation, model, tokeniz
     include the synthetically generated data.
     """
     instruction = annotation['instruction']
-    new_instructions = get_response(instruction, model, tokenizer)
+    print('old instruction: ')
+    print(instruction)
+    new_instructions = get_response(instruction, model, tokenizer, max_length)
+    print()
 
     for new_instruction in new_instructions:
         annotation['instruction'] = new_instruction
-        json.dump(annotation, f)
+        print('new instruction')
+        print(new_instruction)
+#        json.dump(annotation, f)
+    print('-' * 100)
 
     annotation['instruction'] = instruction
 
@@ -67,15 +73,17 @@ def write_and_generate_parallel_for_single_annotation(annotation, model, tokeniz
 
 def generate_parallel(data, write_to_path):
     model, tokenizer = create_model_and_tokenizer()
+    pad_to_len = max([len(annotation['instruction']) for annotation in data])
     f = open(write_to_path, 'a')
-    for annotation in data:
-        new_annotations = write_and_generate_parallel_for_single_annotation(annotation, model, tokenizer, f)
-    
+    #for annotation in data:
+    #    new_annotations = write_and_generate_parallel_for_single_annotation(annotation, model, tokenizer, f, pad_to_len)
+    for i in range(3):
+         new_annotations = write_and_generate_parallel_for_single_annotation(data[i], model, tokenizer, f, pad_to_len)
     f.close()
     print('done writing and generating!')
 
 
 if __name__ == '__main__':
-    new_data = load_dataset('../../rxr_train_guide')
+    new_data = load_dataset('../rxr_train_guide.jsonl')
     filtered = filter_for_language(new_data, 'en-US')
     generate_parallel(filtered, 'rxr_train_new')
