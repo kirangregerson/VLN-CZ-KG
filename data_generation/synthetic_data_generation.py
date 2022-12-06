@@ -15,7 +15,7 @@ def create_model_and_tokenizer():
 
 def get_response(input_text, model, tokenizer, max_length):
   batch = tokenizer([input_text],truncation=True,padding='longest',max_length=max_length, return_tensors="pt").to(torch_device)
-  translated = model.generate(**batch,max_length=max_length,num_beams=NUM_BEAMS, num_return_sequences=NUM_RETURN_SEQUENCES, temperature=2)
+  translated = model.generate(**batch,max_length=max_length,num_beams=NUM_BEAMS, num_return_sequences=NUM_RETURN_SEQUENCES, temperature=1.5)
   tgt_text = tokenizer.batch_decode(translated, skip_special_tokens=True)
   return tgt_text
 
@@ -54,7 +54,7 @@ def write_and_generate_parallel_for_single_annotation(annotation, model, tokeniz
     should be identical to the original annotation besides the instruction field, which should
     include the synthetically generated data.
     """
-    instruction = annotation['instruction']
+    instruction = annotation['instruction'].split('.')[0]
     print('old instruction: ')
     print(instruction)
     new_instructions = get_response(instruction, model, tokenizer, max_length)
@@ -78,7 +78,7 @@ def generate_parallel(data, write_to_path):
     #for annotation in data:
     #    new_annotations = write_and_generate_parallel_for_single_annotation(annotation, model, tokenizer, f, pad_to_len)
     for i in range(3):
-         new_annotations = write_and_generate_parallel_for_single_annotation(data[i], model, tokenizer, f, pad_to_len)
+        new_annotations = write_and_generate_parallel_for_single_annotation(data[i], model, tokenizer, f, pad_to_len)
     f.close()
     print('done writing and generating!')
 
