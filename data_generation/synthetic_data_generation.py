@@ -1,12 +1,7 @@
 import torch
 from transformers import PegasusForConditionalGeneration, PegasusTokenizer
 import json
-"""
-TODO:
-----------------------------------------------------------------------------------------
-- fix json parsing to adapt to reading in json file instead of jsonl
-- change how the alternative sentences are generated
-"""
+import copy
 
 NUM_RETURN_SEQUENCES = 3
 NUM_BEAMS = 10
@@ -15,7 +10,6 @@ LANG = 'en-US'
 OUT_PATH = 'rxr_train_new'
 
 model_name = 'tuner007/pegasus_paraphrase'
-#torch_device = 'cuda' if torch.cuda.is_available() else 'cpu'
 torch_device = 'cpu'
 
 print("training on: ", torch_device)
@@ -65,10 +59,14 @@ def filter_for_language(data, language):
 def generate_parallel(data, write_to_path):
     model, tokenizer = create_model_and_tokenizer()
     f = open(write_to_path, 'a')
-    #for annotation in data:
-    #    new_annotations = write_and_generate_parallel_for_single_annotation(annotation, model, tokenizer, f, pad_to_len)
-    for i in range(3):
-        new_annotations = write_and_generate_parallel_for_single_annotation(data[i], model, tokenizer, f)
+    episodes = {"episodes": []}
+
+    for annotation in data:
+        new_annotations = write_and_generate_parallel_for_single_annotation(annotation, model, tokenizer, f)
+        for new_anno in new_annotations:
+            episodes["episodes"].append(new_anno)
+
+    json.dump(episodes, f)
     f.close()
     print('done writing and generating!')
 
@@ -87,21 +85,17 @@ def write_and_generate_parallel_for_single_annotation(annotation, model, tokeniz
     include the synthetically generated data.
     """
     instruction = annotation['instruction']['instruction_text']
-    print('old instruction: ')
-    print(instruction)
     new_instructions = generate_parallel_for_instruction(instruction, model, tokenizer)
-    print()
+
+    new_dicts = []
+    new_dicts.append(annotation)
 
     for new_instruction in new_instructions:
-        annotation['instruction'] = new_instruction
-        print('new instruction')
-        print(new_instruction)
-#        json.dump(annotation, f)
-    print('-' * 100)
+        new_anno = copy.deepcopy(annotation)
+        new_anno['instruction']['instruction_text'] = new_instruction
+        new_dicts.append(new_anno)
 
-    annotation['instruction'] = instruction
-
-    return new_instructions
+    return new_dicts
 
 def generate_parallel_for_instruction(instruction, model, tokenizer):
     """
@@ -115,23 +109,20 @@ def generate_parallel_for_instruction(instruction, model, tokenizer):
     Returns a list of strings
     """
     instr_segs, max_length = process_instruction_into_segments(instruction)
-    print("instr segs on line 118: ", instr_segs)
 
     new_instrs = [] # 2d list of strings
 
     for seg in instr_segs:
-        print("attempting to process the following: ", seg)
-        if len(seg) > 0:
+        if len(seg.strip()) > 0:
             new_instrs.append(get_response(seg, model, tokenizer, max_length))
 
-    print("new instructions on line 127: ", new_instrs)
 
     new_instrs_joined = [] # list of strings
     for seq in range(NUM_RETURN_SEQUENCES):
         new_instr = []
         for line in new_instrs:
             new_instr.append(line[seq])
-        new_instrs_joined.append(''.join(new_instr))
+        new_instrs_joined.append(' '.join(new_instr))
 
     return new_instrs_joined
 
