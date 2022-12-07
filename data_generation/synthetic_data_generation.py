@@ -4,8 +4,13 @@ import json
 
 NUM_RETURN_SEQUENCES = 3
 NUM_BEAMS = 10
+LOAD_DATA_PATH = '../rxr_train_guide.jsonl'
+LANG = 'en-US'
+OUT_PATH = 'rxr_train_new'
+
 model_name = 'tuner007/pegasus_paraphrase'
 torch_device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 print(torch_device)
 
 def create_model_and_tokenizer(): 
@@ -14,10 +19,10 @@ def create_model_and_tokenizer():
     return model, tokenizer
 
 def get_response(input_text, model, tokenizer, max_length):
-  batch = tokenizer([input_text],truncation=True,padding='longest',max_length=max_length, return_tensors="pt").to(torch_device)
-  translated = model.generate(**batch,max_length=max_length,num_beams=NUM_BEAMS, num_return_sequences=NUM_RETURN_SEQUENCES, temperature=1.5)
-  tgt_text = tokenizer.batch_decode(translated, skip_special_tokens=True)
-  return tgt_text
+    batch = tokenizer([input_text],truncation=True,padding='longest',max_length=max_length, return_tensors="pt").to(torch_device)
+    translated = model.generate(**batch,max_length=max_length,num_beams=NUM_BEAMS, num_return_sequences=1, temperature=1.5)
+    tgt_text = tokenizer.batch_decode(translated, skip_special_tokens=True)
+    return tgt_text
 
 def load_dataset(path_to_data):
     new_data = []
@@ -41,6 +46,17 @@ def filter_for_language(data, language):
     """
     return list(filter(lambda annotation: annotation['language'] == language, data))
 
+def generate_parallel(data, write_to_path):
+    model, tokenizer = create_model_and_tokenizer()
+    pad_to_len = max([len(annotation['instruction']) for annotation in data])
+    f = open(write_to_path, 'a')
+    #for annotation in data:
+    #    new_annotations = write_and_generate_parallel_for_single_annotation(annotation, model, tokenizer, f, pad_to_len)
+    for i in range(3):
+        new_annotations = write_and_generate_parallel_for_single_annotation(data[i], model, tokenizer, f, pad_to_len)
+    f.close()
+    print('done writing and generating!')
+
 def write_and_generate_parallel_for_single_annotation(annotation, model, tokenizer, f, max_length):
     """
     Parameters
@@ -54,10 +70,10 @@ def write_and_generate_parallel_for_single_annotation(annotation, model, tokeniz
     should be identical to the original annotation besides the instruction field, which should
     include the synthetically generated data.
     """
-    instruction = annotation['instruction'].split('.')[0]
+    instruction = annotation['instruction']
     print('old instruction: ')
     print(instruction)
-    new_instructions = get_response(instruction, model, tokenizer, max_length)
+    new_instructions = generate_parallel_for_instruction(instruction, model, tokenizer, f, max_length)
     print()
 
     for new_instruction in new_instructions:
@@ -71,19 +87,44 @@ def write_and_generate_parallel_for_single_annotation(annotation, model, tokeniz
 
     return new_instructions
 
-def generate_parallel(data, write_to_path):
-    model, tokenizer = create_model_and_tokenizer()
-    pad_to_len = max([len(annotation['instruction']) for annotation in data])
-    f = open(write_to_path, 'a')
-    #for annotation in data:
-    #    new_annotations = write_and_generate_parallel_for_single_annotation(annotation, model, tokenizer, f, pad_to_len)
-    for i in range(3):
-        new_annotations = write_and_generate_parallel_for_single_annotation(data[i], model, tokenizer, f, pad_to_len)
-    f.close()
-    print('done writing and generating!')
+def generate_parallel_for_instruction(instruction, model, tokenizer, f, max_length):
+    """
+    Parameters
+    ----------
+    instruction : String
+                  unprocessed instruction from the jsonl
 
+    Returns
+    -------
+    Returns a list of strings
+    """
+    instr_segs = process_instruction_into_segments(instruction)
+
+    new_instrs = []
+
+    for seq in range(NUM_RETURN_SEQUENCES):
+        new_instr = []
+        for seg in instr_segs:
+            new_instr.append(get_response(instruction, model, tokenizer, max_length))
+        new_instrs.append(''.join(new_instr))
+
+    return new_instrs
+
+def process_instruction_into_segments(instruction):
+    instr_sents = instruction.split('.')[0]
+
+    segments = []
+    for sent in instr_sents:
+        if len(sent.split()) > 20:
+            # if sentence is too long, split by commas and append each comma as separate
+            # segment
+            for seg in sent.split(','):
+                segments.append(seg)
+        else:
+            segments.append(sent)
+    return segments
 
 if __name__ == '__main__':
-    new_data = load_dataset('../rxr_train_guide.jsonl')
-    filtered = filter_for_language(new_data, 'en-US')
-    generate_parallel(filtered, 'rxr_train_new')
+    new_data = load_dataset(LOAD_DATA_PATH)
+    filtered = filter_for_language(new_data, LANG)
+    generate_parallel(filtered, OUT_PATH)
