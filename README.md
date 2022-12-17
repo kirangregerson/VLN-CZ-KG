@@ -1,17 +1,18 @@
 # VLN-CZ-KG
 ***Vision-Language-Navigation Agent Research***
+This repository generates semantically-paired instructions using a paraphrase model for a VLN task. 
 
-Environment Setup
- - Download Miniconda, create environment
- - After activating, run:
-  - conda install transformers
-    - This module contains a number of default transformers, including roBERTa and Google ViT
-  - conda install Pillow
-    - This is a digital image processing module
- - All present python scripts should now be functional.
+## Setup
 
-Scripts
-- roberta_sample.py
-  - Attempts to fill in <mask> tokens within a sentence with the most likely word
-- vit_sample.py
-  - Guesses the contents of the linked image (which can be changed).
+1. After cloning this repo, initialize the submodules with the following:
+```bash
+cd VLN-CZ-KG
+git submodule update --init --recursive
+git submodule foreach git pull origin main
+```
+
+2. Run the following:
+```bash
+cd Discrete-Continuous-VLN
+```
+and follow the instructions in their `README.md` to install dependencies, set up, and run.
